@@ -1,0 +1,112 @@
+# Alarm System Program
+# Author: Jared Frietch
+# Date: February 18, 2025
+Description: This program controls a home security system using a motion sensor, reed switch, push button, and LEDs. The button arms or disarms the system. When armed, any motion or reed switch activation triggers an alarm, turns on an LED, displays a message, and sends an email notification.
+
+from gpiozero import MotionSensor, Button, LED
+import time
+import smtplib
+from email.mime.text import MIMEText
+
+# GPIO Setup - Based on Lab Instructions
+motion_sensor = MotionSensor(21)  # PIR Motion Detector
+arm_button = Button(17, pull_up=True)  # Arm/Disarm Button
+reed_switch = Button(20, pull_up=True)  # Reed Switch (Normally Closed)
+armed_led = LED(19)  # Armed LED
+alarm_led = LED(26)  # Alarm LED
+
+# Email setup
+EMAIL_ADDRESS = "your_email@example.com"
+EMAIL_PASSWORD = "your_password"
+TO_PHONE_NUMBER = "recipient@example.com"
+
+# State Variables
+armed = False
+alarm_triggered = False
+
+
+# Function to send an email notification
+def send_email():
+    subject = "ALARM TRIGGERED!"
+    body = "Motion detected or reed switch opened!"
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = EMAIL_ADDRESS
+    msg["To"] = TO_PHONE_NUMBER
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+            server.sendmail(EMAIL_ADDRESS, TO_PHONE_NUMBER, msg.as_string())
+        print("Email sent successfully!")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
+
+# Toggle the armed state of the system
+def toggle_armed():
+    global armed
+    armed = not armed
+
+    if armed:
+        armed_led.on()
+        print("System Armed")
+    else:
+        armed_led.off()
+        clear_alarm()
+        print("System Disarmed")
+
+
+# Trigger the alarm when motion or reed switch is activated
+def trigger_alarm():
+    global alarm_triggered
+    if armed and not alarm_triggered:
+        alarm_triggered = True
+        alarm_led.on()
+        print("ALARM TRIGGERED!")
+        send_email()
+
+# Clear the alarm condition when sensors return to normal state
+def clear_alarm():
+    global alarm_triggered
+    if alarm_triggered:
+        if reed_switch.is_pressed and not motion_sensor.motion_detected:
+            alarm_triggered = False
+            alarm_led.off()
+            print("Alarm Cleared")
+
+
+# Event-based sensor callbacks
+def motion_detected():
+    if armed:
+        print("Motion Detected")
+        trigger_alarm()
+
+
+def reed_switch_opened():
+    if armed:
+        print("Reed Switch Opened")
+        trigger_alarm()
+
+
+def reed_switch_closed():
+    if armed:
+        print("Reed Switch Closed")
+        clear_alarm()
+
+# Attach event handlers
+motion_sensor.when_motion = motion_detected
+reed_switch.when_released = reed_switch_opened  # Opens when magnet is away
+reed_switch.when_pressed = reed_switch_closed  # Closes when magnet is near
+arm_button.when_pressed = toggle_armed
+
+
+# Initial State
+print("Alarm System Initialized (Disarmed)")
+armed_led.off()
+alarm_led.off()
+
+# Keep the program running
+while True:
+    time.sleep(1)
