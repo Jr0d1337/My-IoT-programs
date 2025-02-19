@@ -1,0 +1,41 @@
+# Import needed functions
+from gpiozero import DistanceSensor, LED
+from time import sleep
+
+# Initialize Distance Sensor
+sensor = DistanceSensor(echo=6, trigger=5, max_distance=3.0)
+
+# Initialize LEDs
+led_green = LED(16)
+led_blue = LED(20)
+led_red = LED(21)
+
+# Inform user that program has began
+print("Distance measurement with LED indicators started. Press Ctrl+C to stop.")
+
+try:
+    while True:
+        distance_cm = sensor.distance * 100  # Convert to cm
+        print(f"Distance: {distance_cm:.2f} cm")
+
+        # LED Logic
+        if distance_cm < 100:  # Less than 1 meter
+            led_green.on()
+            led_blue.off()
+            led_red.off()
+        elif 100 <= distance_cm <= 200:  # Between 1m and 2m
+            led_green.on()
+            led_blue.on()
+            led_green.off()
+        else:  # Greater than 2m
+            led_green.on()
+            led_blue.on()
+            led_red.on()
+        
+        sleep(5)  # Pause for 5 seconds
+
+except KeyboardInterrupt:
+    print("\nMeasurement stopped.")
+    led_green.off()
+    led_blue.off()
+    led_red.off()
